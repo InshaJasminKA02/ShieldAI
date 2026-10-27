@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShieldAI Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    color-scheme: dark;
+    --bg: #05070b;
+    --panel: rgba(10, 15, 25, 0.72);
+    --panel-strong: rgba(12, 18, 31, 0.9);
+    --line: rgba(178, 205, 255, 0.16);
+    --line-bright: rgba(118, 202, 255, 0.52);
+    --text: #f4f7fb;
+    --muted: #9aa9b9;
+    --dim: #667587;
+    --blue: #6bd6ff;
+    --green: #5ff3b7;
+    --gold: #f1c96b;
+    --red: #ff6f86;
+    --violet: #a18cff;
+    --radius: 8px;
+    --font: "Inter", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  html, body { min-height: 100%; background: var(--bg); }
+
+  body {
+    font-family: var(--font);
+    color: var(--text);
+    overflow: hidden;
+  }
+
+  #security-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .fallback-model {
+    position: fixed;
+    left: 9vw;
+    top: 50%;
+    z-index: 1;
+    width: min(34vw, 430px);
+    aspect-ratio: 1;
+    transform: translateY(-50%);
+    pointer-events: none;
+    display: grid;
+    place-items: center;
+    perspective: 900px;
+  }
+
+  .css-shield {
+    position: relative;
+    width: 46%;
+    aspect-ratio: 0.78;
+    transform-style: preserve-3d;
+    animation: cssShieldFloat 5s ease-in-out infinite;
+    filter: drop-shadow(0 0 28px rgba(107, 214, 255, 0.26));
+  }
+
+  .css-shield::before,
+  .css-shield::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    clip-path: polygon(50% 0, 92% 21%, 92% 52%, 78% 79%, 50% 100%, 22% 79%, 8% 52%, 8% 21%);
+    border-radius: 8px;
+  }
+
+  .css-shield::before {
+    background: linear-gradient(145deg, rgba(107, 214, 255, 0.34), rgba(95, 243, 183, 0.12) 55%, rgba(241, 201, 107, 0.18));
+    border: 1px solid rgba(107, 214, 255, 0.72);
+    transform: translateZ(28px);
+  }
+
+  .css-shield::after {
+    background: rgba(5, 12, 22, 0.84);
+    transform: translateZ(4px) scale(0.78);
+    box-shadow: inset 0 0 38px rgba(107, 214, 255, 0.2);
+  }
+
+  .css-ring {
+    position: absolute;
+    inset: 12%;
+    border: 1px solid rgba(107, 214, 255, 0.28);
+    border-radius: 50%;
+    transform: rotateX(64deg);
+    animation: cssRingSpin 7s linear infinite;
+  }
+
+  .css-ring:nth-child(2) {
+    inset: 3%;
+    border-color: rgba(95, 243, 183, 0.22);
+    animation-duration: 10s;
+    animation-direction: reverse;
+  }
+
+  .css-ring:nth-child(3) {
+    inset: -8%;
+    border-color: rgba(241, 201, 107, 0.18);
+    animation-duration: 14s;
+  }
+
+  .webgl-ready .fallback-model { display: none; }
+
+  .shell {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(360px, 460px);
+    gap: clamp(28px, 5vw, 76px);
+    align-items: center;
+    padding: clamp(22px, 4vw, 58px);
+  }
+
+  .shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(circle at 32% 48%, black, transparent 72%);
+  }
+
+  .hero {
+    min-width: 0;
+    max-width: 820px;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .brand-mark {
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius);
+    border: 1px solid var(--line-bright);
+    background: linear-gradient(145deg, rgba(107, 214, 255, 0.18), rgba(95, 243, 183, 0.08));
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34), 0 0 28px rgba(107, 214, 255, 0.16);
+  }
+
+  .brand-mark svg {
+    width: 25px;
+    height: 25px;
+    fill: none;
+    stroke: var(--blue);
+    stroke-width: 1.8;
+  }
+
+  .brand-name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .brand-name span { color: var(--blue); }
+
+  .eyebrow {
+    display: inline-flex;
+    gap: 30px;
+    align-items: center;
+    margin-left: 28px;
+    margin-bottom: 18px;
+    padding: 8px 12px;
+    border: 1px solid rgba(95, 243, 183, 0.22);
+    border-radius: var(--radius);
+    background: rgba(95, 243, 183, 0.07);
+    color: var(--green);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .eyebrow::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 14px var(--green);
+    animation: blink 1.8s ease-in-out infinite;
+  }
+
+  h1 {
+    max-width: 760px;
+    font-size: clamp(46px, 8vw, 92px);
+    line-height: 0.92;
+    letter-spacing: 0;
+    font-weight: 800;
+  }
+
+  h1 span {
+    color: transparent;
+    background: linear-gradient(100deg, var(--blue), var(--green), var(--gold));
+    background-clip: text;
+    -webkit-background-clip: text;
+  }
+
+  .hero-copy {
+    max-width: 600px;
+    margin-top: 24px;
+    color: var(--muted);
+    font-size: clamp(16px, 2vw, 19px);
+    line-height: 1.7;
+  }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 660px;
+    margin-top: 34px;
+  }
+
+  .metric {
+    min-height: 98px;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background: rgba(8, 13, 22, 0.62);
+    backdrop-filter: blur(22px);
+    padding: 17px;
+  }
+
+  .metric strong {
+    display: block;
+    font-family: var(--mono);
+    font-size: clamp(18px, 3vw, 28px);
+    color: var(--text);
+  }
+
+  .metric span {
+    display: block;
+    margin-top: 10px;
+    color: var(--dim);
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .login-panel {
+    position: relative;
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 18%),
+      var(--panel);
+    backdrop-filter: blur(30px) saturate(1.25);
+    box-shadow: 0 36px 90px rgba(0, 0, 0, 0.44), inset 0 1px rgba(255, 255, 255, 0.08);
+    padding: clamp(24px, 4vw, 34px);
+    overflow: hidden;
+  }
+
+  .login-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--blue), var(--green), transparent);
+  }
+
+  .panel-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 26px;
+  }
+
+  .panel-title {
+    font-size: 26px;
+    line-height: 1.15;
+    letter-spacing: 0;
+    font-weight: 800;
+  }
+
+  .panel-subtitle {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .clearance {
+    white-space: nowrap;
+    padding: 7px 10px;
+    border-radius: var(--radius);
+    border: 1px solid rgba(241, 201, 107, 0.28);
+    background: rgba(241, 201, 107, 0.09);
+    color: var(--gold);
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+
+  .field { margin-bottom: 18px; }
+
+  label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 9px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  label span { color: var(--dim); text-transform: none; letter-spacing: 0; }
+
+  .input-wrap {
+    position: relative;
+  }
+
+  .input-wrap svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    transform: translateY(-50%);
+    stroke: var(--dim);
+    fill: none;
+    stroke-width: 1.8;
+    pointer-events: none;
+  }
+
+  input {
+    width: 100%;
+    min-height: 52px;
+    padding: 0 14px 0 44px;
+    border: 1px solid rgba(178, 205, 255, 0.14);
+    border-radius: var(--radius);
+    background: rgba(3, 7, 13, 0.62);
+    color: var(--text);
+    font: 500 15px var(--font);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  input::placeholder { color: #526173; }
+
+  input:focus {
+    border-color: rgba(107, 214, 255, 0.66);
+    background: rgba(5, 11, 20, 0.82);
+    box-shadow: 0 0 0 4px rgba(107, 214, 255, 0.1);
+  }
+
+  .actions {
+    display: grid;
+    gap: 12px;
+    margin-top: 8px;
+  }
+
+  .btn {
+    position: relative;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 52px;
+    border: 0;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, #73ddff, #66f1bd 58%, #f2ce75);
+    color: #031016;
+    font: 800 15px var(--font);
+    cursor: pointer;
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+    box-shadow: 0 18px 42px rgba(107, 214, 255, 0.2);
+  }
+
+  .btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.45), transparent);
+    transform: translateX(-120%);
+    transition: transform 0.55s ease;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 22px 56px rgba(95, 243, 183, 0.2);
+  }
+
+  .btn:hover::after { transform: translateX(120%); }
+  .btn:active { transform: translateY(0) scale(0.99); }
+  .btn:disabled { opacity: 0.66; cursor: wait; }
+
+  .secondary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11px;
+  }
+
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .switch {
+    width: 34px;
+    height: 20px;
+    border-radius: 999px;
+    border: 1px solid rgba(107, 214, 255, 0.28);
+    background: rgba(107, 214, 255, 0.1);
+    padding: 2px;
+  }
+
+  .switch::before {
+    content: "";
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--blue);
+    box-shadow: 0 0 10px rgba(107, 214, 255, 0.7);
+    transition: transform 0.2s ease;
+  }
+
+  .toggle input:checked + .switch::before { transform: translateX(14px); }
+
+  .error {
+    display: none;
+    margin-top: 14px;
+    padding: 12px 13px;
+    border: 1px solid rgba(255, 111, 134, 0.35);
+    border-radius: var(--radius);
+    background: rgba(255, 111, 134, 0.1);
+    color: #ff9bac;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .panel-footer {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 24px;
+  }
+
+  .signal {
+    border: 1px solid rgba(178, 205, 255, 0.12);
+    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.035);
+    padding: 10px;
+    min-height: 58px;
+  }
+
+  .signal b {
+    display: block;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .signal span {
+    display: block;
+    margin-top: 7px;
+    color: var(--dim);
+    font-size: 11px;
+  }
+
+  .corner {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-color: rgba(107, 214, 255, 0.5);
+  }
+
+  .tl { top: 12px; left: 12px; border-top: 1px solid; border-left: 1px solid; }
+  .tr { top: 12px; right: 12px; border-top: 1px solid; border-right: 1px solid; }
+  .bl { bottom: 12px; left: 12px; border-bottom: 1px solid; border-left: 1px solid; }
+  .br { bottom: 12px; right: 12px; border-bottom: 1px solid; border-right: 1px solid; }
+
+  .hud {
+    position: fixed;
+    left: clamp(18px, 4vw, 58px);
+    bottom: clamp(18px, 4vw, 38px);
+    z-index: 3;
+    display: flex;
+    gap: 100px;
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+
+  .hud span {
+    padding: 8px 10px;
+    border: 1px solid rgba(178, 205, 255, 0.12);
+    border-radius: var(--radius);
+    background: rgba(8, 13, 22, 0.56);
+    backdrop-filter: blur(18px);
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.45; transform: scale(0.72); }
+  }
+
+  @keyframes cssShieldFloat {
+    0%, 100% { transform: rotateX(10deg) rotateY(-18deg) translateY(0); }
+    50% { transform: rotateX(-4deg) rotateY(20deg) translateY(-18px); }
+  }
+
+  @keyframes cssRingSpin {
+    to { transform: rotateX(64deg) rotateZ(360deg); }
+  }
+
+  @media (max-width: 980px) {
+    body { overflow: auto; }
+    .shell {
+      min-height: auto;
+      grid-template-columns: 1fr;
+      padding-bottom: 110px;
+    }
+
+    .hero { max-width: none; }
+    .login-panel { max-width: 560px; width: 100%; }
+    .hud { flex-wrap: wrap; right: 18px; }
+    .fallback-model { left: auto; right: -80px; top: 30%; width: 320px; opacity: 0.42; }
+  }
+
+  @media (max-width: 620px) {
+    .shell { padding: 18px; gap: 26px; }
+    .brand { margin-bottom: 22px; }
+    .metrics { grid-template-columns: 1fr; }
+    .panel-top, .secondary-row { align-items: flex-start; flex-direction: column; }
+    .panel-footer { grid-template-columns: 1fr; }
+    .hud { display: none; }
+    .fallback-model { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="security-canvas" aria-hidden="true"></canvas>
+<div class="fallback-model" aria-hidden="true">
+  <div class="css-ring"></div>
+  <div class="css-ring"></div>
+  <div class="css-ring"></div>
+  <div class="css-shield"></div>
+</div>
+
+<main class="shell">
+  <section class="hero" aria-label="ShieldAI access overview">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2.8 20 6.4v5.8c0 5-3.35 8.15-8 9.2-4.65-1.05-8-4.2-8-9.2V6.4l8-3.6Z"/>
+          <path d="m8.7 12.2 2.2 2.2 4.8-5"/>
+        </svg>
+      </div>
+      <div class="brand-name">Shield<span>AI</span></div>
+    </div>
+
+    <div class="eyebrow">Zero-trust access layer online</div>
+    <h1>Secure the console before the model sees <span>anything.</span></h1>
+    <p class="hero-copy">A command entrance for your prompt-injection detector, with real-time visual telemetry, hardware-style access cues, and a live 3D security model floating in the scene.</p>
+
+    <div class="metrics" aria-label="Security metrics">
+      <div class="metric">
+        <strong>98.5%</strong>
+        <span>Model confidence target for injection detection workflows.</span>
+      </div>
+      <div class="metric">
+        <strong>2 ms</strong>
+        <span>Interface response cadence for lock, focus, and access states.</span>
+      </div>
+      <div class="metric">
+        <strong>24/7</strong>
+        <span>Protected administrative access for the ShieldAI dashboard.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="login-panel" aria-label="Login form">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="panel-top">
+      <div>
+        <h2 class="panel-title">Operator Login</h2>
+        <p class="panel-subtitle">Authenticate to open the protected dashboard.</p>
+      </div>
+      <div class="clearance">ADMIN</div>
+    </div>
+
+    <form id="loginForm" novalidate>
+      <div class="field">
+        <label for="username">Username <span>required</span></label>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+          <input type="text" id="username" name="username" placeholder="admin" autocomplete="username" required>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="password">Password <span>encrypted session</span></label>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg>
+          <input type="password" id="password" name="password" placeholder="Enter password" autocomplete="current-password" required>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="loginBtn" type="submit">Enter Secure Dashboard</button>
+      </div>
+
+      <div class="secondary-row">
+        <label class="toggle" for="privacyMode">
+          <input id="privacyMode" type="checkbox" checked>
+          <span class="switch" aria-hidden="true"></span>
+          Privacy shield
+        </label>
+        <span>Session hardening active</span>
+      </div>
+
+      <div class="error" id="errorMsg">Invalid credentials. Please check your admin username and password.</div>
+    </form>
+
+    <div class="panel-footer" aria-label="System signals">
+      <div class="signal"><b>AES</b><span>Token vault</span></div>
+      <div class="signal"><b>ML</b><span>Detector ready</span></div>
+      <div class="signal"><b>API</b><span>Route guarded</span></div>
+    </div>
+  </section>
+</main>
+
+
+<script>
+(function () {
+  if (!window.THREE) {
+    document.body.classList.add("no-webgl");
+    return;
+  }
+
+  document.body.classList.add("webgl-ready");
+  const canvas = document.getElementById("security-canvas");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 120);
+  camera.position.set(0, 0.2, 8.4);
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  const colors = {
+    blue: 0x6bd6ff,
+    green: 0x5ff3b7,
+    gold: 0xf1c96b,
+    violet: 0xa18cff
+  };
+
+  const shieldShape = new THREE.Shape();
+  shieldShape.moveTo(0, 2.0);
+  shieldShape.lineTo(1.55, 1.22);
+  shieldShape.lineTo(1.55, -0.08);
+  shieldShape.bezierCurveTo(1.55, -1.36, 0.55, -2.08, 0, -2.36);
+  shieldShape.bezierCurveTo(-0.55, -2.08, -1.55, -1.36, -1.55, -0.08);
+  shieldShape.lineTo(-1.55, 1.22);
+  shieldShape.closePath();
+
+  const shieldGeo = new THREE.ExtrudeGeometry(shieldShape, {
+    depth: 0.34,
+    bevelEnabled: true,
+    bevelThickness: 0.08,
+    bevelSize: 0.06,
+    bevelSegments: 8
+  });
+  shieldGeo.center();
+
+  const shieldMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0c1724,
+    metalness: 0.58,
+    roughness: 0.22,
+    transmission: 0.12,
+    transparent: true,
+    opacity: 0.86,
+    clearcoat: 1,
+    clearcoatRoughness: 0.18
+  });
+  const shield = new THREE.Mesh(shieldGeo, shieldMat);
+  group.add(shield);
+
+  const edge = new THREE.LineSegments(
+    new THREE.EdgesGeometry(shieldGeo, 20),
+    new THREE.LineBasicMaterial({ color: colors.blue, transparent: true, opacity: 0.62 })
+  );
+  group.add(edge);
+
+  const innerRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.18, 0.018, 12, 140),
+    new THREE.MeshBasicMaterial({ color: colors.green, transparent: true, opacity: 0.42 })
+  );
+  innerRing.rotation.x = Math.PI / 2.6;
+  group.add(innerRing);
+
+  const outerRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.95, 0.01, 12, 180),
+    new THREE.MeshBasicMaterial({ color: colors.blue, transparent: true, opacity: 0.3 })
+  );
+  outerRing.rotation.x = Math.PI / 2.8;
+  group.add(outerRing);
+
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(2.65, 0.008, 8, 220),
+    new THREE.MeshBasicMaterial({ color: colors.gold, transparent: true, opacity: 0.18 })
+  );
+  halo.rotation.x = Math.PI / 2.1;
+  group.add(halo);
+
+  const particleGeo = new THREE.BufferGeometry();
+  const positions = [];
+  const particleCount = 520;
+  for (let i = 0; i < particleCount; i++) {
+    const r = 3.5 + Math.random() * 8.8;
+    const a = Math.random() * Math.PI * 2;
+    const y = (Math.random() - 0.5) * 6.8;
+    positions.push(Math.cos(a) * r, y, Math.sin(a) * r - 2);
+  }
+  particleGeo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  const particles = new THREE.Points(
+    particleGeo,
+    new THREE.PointsMaterial({ color: colors.blue, size: 0.026, transparent: true, opacity: 0.56 })
+  );
+  scene.add(particles);
+
+  const nodeMat = new THREE.MeshBasicMaterial({ color: colors.violet, transparent: true, opacity: 0.38 });
+  const nodes = [];
+  for (let i = 0; i < 18; i++) {
+    const node = new THREE.Mesh(new THREE.IcosahedronGeometry(0.045, 0), nodeMat);
+    const angle = i / 18 * Math.PI * 2;
+    const radius = 2.9 + (i % 3) * 0.38;
+    node.position.set(Math.cos(angle) * radius, Math.sin(i * 1.7) * 1.1, Math.sin(angle) * radius);
+    group.add(node);
+    nodes.push(node);
+  }
+
+  const lightA = new THREE.PointLight(colors.blue, 2.8, 12);
+  lightA.position.set(-3, 3.5, 4);
+  scene.add(lightA);
+  const lightB = new THREE.PointLight(colors.green, 2.2, 10);
+  lightB.position.set(3.8, -2.2, 3);
+  scene.add(lightB);
+  scene.add(new THREE.AmbientLight(0x6d829f, 0.7));
+
+  let mouseX = 0;
+  let mouseY = 0;
+  window.addEventListener("pointermove", (event) => {
+    mouseX = event.clientX / window.innerWidth - 0.5;
+    mouseY = event.clientY / window.innerHeight - 0.5;
+  });
+
+  function resize() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    group.position.x = width > 980 ? -1.85 : 0.9;
+    group.position.y = width > 980 ? -0.1 : 0.62;
+    group.scale.setScalar(width > 980 ? 0.92 : 0.56);
+  }
+
+  window.addEventListener("resize", resize);
+  resize();
+
+  const clock = new THREE.Clock();
+  function animate() {
+    const t = clock.getElapsedTime();
+    requestAnimationFrame(animate);
+
+    group.rotation.y = Math.sin(t * 0.34) * 0.26 + mouseX * 0.28;
+    group.rotation.x = Math.sin(t * 0.27) * 0.08 - mouseY * 0.18;
+    group.position.y += (Math.sin(t * 0.9) * 0.045 - group.position.y * 0.002) * 0.02;
+
+    innerRing.rotation.z = t * 0.82;
+    outerRing.rotation.z = -t * 0.42;
+    halo.rotation.z = t * 0.2;
+    particles.rotation.y = t * 0.025;
+
+    nodes.forEach((node, index) => {
+      node.rotation.x += 0.008;
+      node.rotation.y += 0.01;
+      node.position.y += Math.sin(t * 1.5 + index) * 0.0009;
+    });
+
+    edge.material.opacity = 0.46 + Math.sin(t * 1.8) * 0.16;
+    renderer.render(scene, camera);
+  }
+  animate();
+})();
+</script>
+
+<script>
+const form = document.getElementById("loginForm");
+const error = document.getElementById("errorMsg");
+const button = document.getElementById("loginBtn");
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value;
+
+  error.style.display = "none";
+  button.disabled = true;
+  button.textContent = "Verifying operator...";
+
+  try {
+    const response = await fetch("/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      button.textContent = "Access granted";
+      window.location.href = "/admin";
+      return;
+    }
+
+    throw new Error("denied");
+  } catch (err) {
+    error.style.display = "block";
+    button.disabled = false;
+    button.textContent = "Enter Secure Dashboard";
+  }
+});
+</script>
+</body>
+</html>
